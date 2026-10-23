@@ -7,17 +7,24 @@ on:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       NDK_VERSION: 27.0.12077973
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verificar arquivos do projeto
+        run: |
+          ls -la
+          test -f package.json || { echo "::error::package.json nao esta na raiz do repositorio. Envie os arquivos do projeto."; exit 1; }
+          test -f www/index.html || { echo "::error::www/index.html nao encontrado."; exit 1; }
+          test -f src-tauri/Cargo.toml || { echo "::error::src-tauri/Cargo.toml nao encontrado."; exit 1; }
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -26,6 +33,7 @@ jobs:
 
       - name: Instalar NDK
         run: |
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
           echo "NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
@@ -42,13 +50,12 @@ jobs:
       - name: Gerar projeto Android
         run: npx tauri android init --ci
 
-      - name: Permitir HTTP local (proxy 127.0.0.1) e streams http
+      - name: Permitir HTTP local
         run: |
           M=src-tauri/gen/android/app/src/main/AndroidManifest.xml
           grep -q usesCleartextTraffic "$M" || sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$M"
-          grep -n "usesCleartextTraffic" "$M"
 
-      - name: Compilar APK (assinado com chave debug, instala direto)
+      - name: Compilar APK
         run: npx tauri android build --apk --debug --target aarch64 armv7
 
       - uses: actions/upload-artifact@v4
