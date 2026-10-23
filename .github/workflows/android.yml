@@ -16,7 +16,7 @@ jobs:
       - name: Verificar arquivos do projeto
         run: |
           ls -la
-          test -f package.json || { echo "::error::package.json nao esta na raiz do repositorio. Envie os arquivos do projeto."; exit 1; }
+          test -f package.json || { echo "::error::package.json nao esta na raiz do repositorio."; exit 1; }
           test -f www/index.html || { echo "::error::www/index.html nao encontrado."; exit 1; }
           test -f src-tauri/Cargo.toml || { echo "::error::src-tauri/Cargo.toml nao encontrado."; exit 1; }
 
@@ -29,12 +29,13 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Instalar NDK
+      - name: Android SDK e NDK (usa o SDK ja instalado no runner)
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          SDKM="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          ls "${SDKM}"
+          yes | "${SDKM}" --licenses > /dev/null || true
+          "${SDKM}" --install "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
           echo "NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
