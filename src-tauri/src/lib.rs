@@ -5,7 +5,7 @@ use tiny_http::{Header, Method, Response, Server, StatusCode};
 
 static HTTP_CLIENT: Lazy<reqwest::blocking::Client> = Lazy::new(|| {
     reqwest::blocking::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 VLC/3.0")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         // O padrao do reqwest blocking e 30s TOTAL (inclui o corpo): cortava o stream
         // ao vivo a cada 30s e causava travadas/delays. Aqui: sem timeout no corpo.
         .timeout(None::<std::time::Duration>)
@@ -44,6 +44,18 @@ fn handle_request(request: tiny_http::Request) {
     }
 
     let url = request.url().to_string();
+    if url.starts_with("/health") {
+        let body = b"ok".to_vec();
+        let len = body.len();
+        let _ = request.respond(Response::new(
+            StatusCode(200),
+            vec![header(b"Content-Type", b"text/plain"), header(b"Access-Control-Allow-Origin", b"*")],
+            Cursor::new(body),
+            Some(len),
+            None,
+        ));
+        return;
+    }
     let remote_url = url
         .split_once('?')
         .and_then(|(_, q)| q.split('&').find_map(|kv| kv.strip_prefix("u=")))
@@ -82,8 +94,7 @@ fn handle_request(request: tiny_http::Request) {
 
     let mut builder = HTTP_CLIENT
         .get(&remote_url)
-        .header("Accept", "*/*")
-        .header("Connection", "close");
+        .header("Accept", "*/*");
     if let Some(r) = range {
         builder = builder.header("Range", r);
     }

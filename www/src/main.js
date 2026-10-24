@@ -112,6 +112,43 @@
     return { nav: () => play('nav'), act: () => play('act'), arm, toggle };
   })();
 
+
+  // ---------- diagnostico (toque 5x no avatar "VT") ----------
+  (function () {
+    const av = document.querySelector('.avatar'); if (!av) return;
+    const box = document.createElement('div');
+    box.id = 'diag'; box.hidden = true;
+    box.innerHTML = '<div class="diag-win"><button class="diag-x" type="button">✕</button><pre id="diag-pre"></pre></div>';
+    document.body.appendChild(box);
+    const pre = box.querySelector('pre');
+    box.querySelector('.diag-x').addEventListener('click', () => { box.hidden = true; });
+    let taps = 0, tt = null;
+    av.addEventListener('click', () => { taps++; clearTimeout(tt); tt = setTimeout(() => taps = 0, 1500); if (taps >= 5) { taps = 0; box.hidden = false; run(); } });
+    const mask = t => String(t).replace(/(https?:\/\/[^\/\s"]+\/)[^\s"]*/g, '$1***');
+    async function probe(label, url) {
+      const t0 = performance.now(), ac = new AbortController(), to = setTimeout(() => ac.abort(), 10000);
+      try {
+        const r = await fetch(url, { signal: ac.signal });
+        const ct = r.headers.get('content-type') || '-';
+        if (!r.ok) { const tx = (await r.text()).slice(0, 160); return `${label}: HTTP ${r.status} (${ct}) ${mask(tx)}`; }
+        const rd = r.body.getReader(); const c = await rd.read(); ac.abort();
+        return `${label}: HTTP ${r.status} (${ct}) primeiro bloco ${c.value ? c.value.length : 0} bytes em ${Math.round(performance.now() - t0)} ms`;
+      } catch (e) { return `${label}: ERRO ${e && e.name}: ${mask(e && e.message)} (${Math.round(performance.now() - t0)} ms)`; }
+      finally { clearTimeout(to); }
+    }
+    async function run() {
+      const out = []; const log = s => { out.push(s); pre.textContent = out.join('\n'); };
+      log('Vapor TV diagnostico'); log('pagina: ' + location.href); log('Tauri: ' + IS_TAURI + ' | rotas: ' + ROUTES.length);
+      log('UA: ' + navigator.userAgent);
+      if (IS_TAURI) log(await probe('proxy /health', `http://127.0.0.1:${PROXY_PORT}/health`));
+      const ch = CHANNELS[currentIndex] || CHANNELS[0];
+      log('canal: ' + ch.name + ' -> ' + mask(ch.url));
+      log('testando (ate 10s cada)...');
+      for (let i = 0; i < ROUTES.length; i++) log(await probe('rota ' + i, ROUTES[i](ch.url)));
+      log('fim. Tire print desta tela.');
+    }
+  })();
+
   // ---------- helpers ----------
   const $ = id => document.getElementById(id);
   const base64url = s => {
@@ -143,7 +180,7 @@
   // com mpegts.js. Se falhar (https bloqueia http, CORS), cada tentativa alterna para a proxima.
   const b64 = remote => base64url(remote);
   const ROUTES = IS_TAURI
-    ? [r => r, r => proxyUrl(r)]
+    ? [r => proxyUrl(r), r => r]   // Tauri: proxy local primeiro (sai do proprio aparelho, sem CORS)
     : [r => r, r => viaRewrite(r), r => (window.__WEB_PROXY || '/proxy?u=') + b64(r)];
   let curRoute = 0;
   const savedRoute = () => (parseInt(localStorage.getItem('vaportv_route') || '0', 10) || 0) % ROUTES.length;

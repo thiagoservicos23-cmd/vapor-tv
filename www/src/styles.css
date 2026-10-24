@@ -402,3 +402,9 @@ input[type="range"]::-webkit-slider-thumb {
 .ui-sound-btn.off .ic-on { display: none; }
 .ui-sound-btn.off .ic-off { display: block; opacity: .85; }
 .ui-sound-btn.off { border-color: rgba(255,255,255,0.18); }
+
+#diag { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; }
+#diag[hidden] { display: none; }
+.diag-win { position: relative; width: min(760px, 94vw); max-height: 88vh; overflow: auto; background: #10131c; border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 18px; }
+.diag-win pre { margin: 0; color: #cfe8ff; font: 12px/1.5 monospace; white-space: pre-wrap; word-break: break-all; }
+.diag-x { position: absolute; top: 8px; right: 10px; background: none; border: 0; color: #fff; font-size: 20px; cursor: pointer; }
